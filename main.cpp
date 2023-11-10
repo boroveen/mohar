@@ -1,9 +1,10 @@
-#include <ncurses.h>
-#include <string.h>
+#include <filesystem>
+#include <cstring>
 #include <iostream>
 #include <fstream>
-#include <stdlib.h>
+#include <ncurses.h>
 using namespace std;
+namespace fs = filesystem;
 bool visual=false,matem=true,onematem=false,btitle=false;
 int row,cal,arow,acal,iflag,iinit=0,ifile=1,iword=0,iline[1000],allline=2,ititle=0;
 string sdir[100],spwd,sword[100000];
@@ -134,53 +135,46 @@ void filesmenu(){
 }
 
 void initprogram(){
-	checksmallscreen();
-	if(iflag==1){
-		matem=false,visual=false;
-		printw("ошибка иницилизации. думается что вы должны вести путь к папке с текстовыми документами\nпочему-то вы это не сделали\nпример: ./main /home/useranon/Documents");
-		getch();
-	}
-	if(matem){
-		char command[255];
-		sprintf(command,"ls %s | grep .txt > ls.txt",spwd.c_str());
-		system(command);
-		fstream fdir("ls.txt");
-		if(!fdir){
-			visual=false,matem=false;
-			printw("ошибка иницилизации файлов. возможно вы в рут папке");
-			getch();
-		}
-		else{
-			bool binit=true;
-			while(binit){
-				if(!fdir.eof()) iinit++;
-				fdir >> sdir[iinit];
-				if(fdir.eof()){
-					binit=false;
-					fdir.close();
-				}
-			}
-			char cdir[50];
-			if(sdir[1]==""){
-				visual=false,binit=false,matem=false;
-				printw("ошибка иницилизации файлов. возможно вы не правильно вели путь\nили нету файлов");
-				getch();
-			}
-			if(visual){
-				for(int i=1;i<iinit;i++){
-					attron(COLOR_PAIR(1));
-					mvprintw(row/2/2,cal/2-20,"инилизация текстовых файлов");
-					sprintf(cdir,"%s",sdir[i].c_str());
-					halfdelay(20);
-					mvprintw(row/2-iinit+i,cal/2-10,"%s",cdir);
-					getch();
-				}
-				raw();
-			}
-		}
-		sprintf(command,"rm ls.txt");
-		system(command);
-	}
+    checksmallscreen();
+    if(iflag==1){
+        matem=false,visual=false;
+        printw("ошибка инициализации. думается что вы должны вести путь к папке с текстовыми документами\nпочему-то вы это не сделали\nпример: ./main /home/useranon/Documents");
+        getch();
+    }
+    if(matem){
+        fs::path path(spwd);
+
+        if(!fs::directory_entry(path).is_directory()) {
+            visual=false,matem=false;
+            printw("ошибка инициализации файлов. Вы не правильно ввели путь");
+            getch();
+        } else {
+            for(auto const& file: fs::directory_iterator(path)) {
+                if(file.path().extension() == ".txt") {
+                    ++iinit;
+                    sdir[iinit] = file.path().filename();
+                }
+            }
+            ++iinit; //The kludge ;>
+
+            if(sdir[1].empty()){
+                visual=false,matem=false;
+                printw("ошибка инициализации файлов. нету файлов");
+                getch();
+            }
+
+            if(visual){
+                for(int i=1;i<iinit;i++){
+                    attron(COLOR_PAIR(1));
+                    mvprintw(row/2/2,cal/2-20,"инициализация текстовых файлов");
+                    halfdelay(20);
+                    mvprintw(row/2-iinit+i,cal/2-10,"%s",sdir[i].c_str());
+                    getch();
+                }
+                raw();
+            }
+        }
+    }
 }
 
 void draw(){
@@ -230,7 +224,7 @@ void draw(){
 }
 
 void initwords(){
-	if(visual) mvprintw(row/2+iinit+1,cal/2-8,"иницилизация слов");
+	if(visual) mvprintw(row/2+iinit+1,cal/2-8,"инициализация слов");
 	iword=0,ititle=1;
 	btitle=false;
 	bool binit=true,bbtitle=false;
@@ -268,7 +262,7 @@ void initscreen(){
 	}
 }
 
-void output(string outsay,bool effect){
+void output(const string& outsay,bool effect){
 	char csay[50];
 	sprintf(csay,"%s",outsay.c_str());
 	attron(COLOR_PAIR(3));
